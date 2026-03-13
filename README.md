@@ -4,7 +4,7 @@ This project implements a sophisticated tri-objective portfolio optimization fra
 
 It leverages multi-objective evolutionary algorithms (NSGA-II) to discover the Pareto Front of optimal portfolios and incorporates preference handling via **SMAA-TOPSIS** to identify the best compromise solutions based on different investor profiles.
 
-## 🚀 Key Features
+## Key Features
 
 - **Tri-Objective Optimization**: Simultaneously optimizes for:
   1. **Maximize Expected Return**: Enhancing portfolio profitability.
@@ -19,7 +19,7 @@ It leverages multi-objective evolutionary algorithms (NSGA-II) to discover the P
   - `ESG-mot`: ESG Motivated (Focus on sustainability).
 - **Terminal-Based Visualization**: Rich interactive plots using `plotext` directly in your terminal, featuring Pareto projections, Monte Carlo weight distributions, and Rank Acceptability Indices (RAI).
 
-## 🛠 Installation
+## Installation
 
 Ensuring you have Python installed, install the required dependencies:
 
@@ -33,7 +33,7 @@ The core dependencies are:
 - `scipy`: Scientific utilities and distance metrics.
 - `plotext`: Terminal-based plotting.
 
-## 📈 Usage
+## Usage
 
 The project contains two main execution scripts:
 
@@ -51,7 +51,7 @@ A more complex simulation involving 100 assets with structured archetypes. It ru
 python esg_portfolio-structured.py
 ```
 
-## 🧮 Methodology
+## Methodology
 
 ### Mathematical Formulation
 The optimization problem is defined as:
