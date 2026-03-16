@@ -6,29 +6,42 @@ from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.optimize import minimize
 from pymoo.termination import get_termination
 from scipy.spatial.distance import cdist
-import sys
 
 # ==========================================
-# 0. MATHEMATICAL FORMULATION OUTPUT
+# 0. COMPREHENSIVE MATHEMATICAL FORMULATION OUTPUT
 # ==========================================
-def print_objective_function():
-    print("\n" + "="*65)
-    print("   MATHEMATICAL FORMULATION OF THE OBJECTIVE FUNCTION")
-    print("="*65)
+def print_comprehensive_mathematical_model():
+    print("\n" + "="*75)
+    print("   PHASE 1: PROPOSED MULTI-OBJECTIVE OPTIMIZATION (ev-MOGA)")
+    print("="*75)
     print(" Let 'x' be the vector of asset weights [x_1, x_2, ..., x_N]")
-    print(" Let 'μ' be the vector of expected returns")
-    print(" Let 'Σ' be the covariance matrix of asset returns")
-    print(" Let 'E' be the vector of ESG risk scores (Lower is better)")
-    print("\n The Tri-Objective Optimization Problem is defined as:")
-    print("   Minimize F(x) = [ -f1(x), f2(x), f3(x) ]")
-    print("\n Where:")
-    print("   f1(x) = μ^T * x        (Maximize Expected Return)")
-    print("   f2(x) = x^T * Σ * x    (Minimize Portfolio Variance)")
-    print("   f3(x) = E^T * x        (Minimize Portfolio ESG Risk)")
-    print("\n Subject to constraints:")
-    print("   Σ x_i = 1              (Full investment, no leverage)")
-    print("   x_i >= 0               (No short selling, bounded by 1)")
-    print("="*65 + "\n")
+    print(" Let 'μ' be expected returns, 'Σ' be covariance, 'E' be ESG risk")
+    print("\n Objective Function: F(x) = [ f1(x), f2(x), f3(x) ]")
+    print("   Max f1(x) = μ^T * x        (Expected Return)")
+    print("   Min f2(x) = x^T * Σ * x    (Portfolio Variance)")
+    print("   Min f3(x) = E^T * x        (Portfolio ESG Risk)")
+    print("\n Constraints:")
+    print("   Σ x_i = 1 (Full investment),  x_i >= 0 (No short selling)")
+    
+    print("\n" + "="*75)
+    print("   PHASE 2: SMAA-TOPSIS PREFERENCE HANDLING")
+    print("="*75)
+    print(" 1. Vector Normalization:")
+    print("    r_ij = f_ij / sqrt( Σ(f_ij)^2 )")
+    print("\n 2. Monte Carlo Weighting (Simulating Investor Profiles):")
+    print("    w = [w_ret, w_var, w_esg] sampled from Dirichlet Distribution")
+    print("    v_ij = w_j * r_ij")
+    print("\n 3. Ideal (A+) and Anti-Ideal (A-) Solutions:")
+    print("    A+ = { max(v_ret), min(v_var), min(v_esg) }")
+    print("    A- = { min(v_ret), max(v_var), max(v_esg) }")
+    print("\n 4. Euclidean Distances & Closeness Coefficient (CC):")
+    print("    D_i+ = sqrt( Σ(v_ij - v_j+)^2 )")
+    print("    D_i- = sqrt( Σ(v_ij - v_j-)^2 )")
+    print("    CC_i = D_i- / (D_i+ + D_i-)  --> (Higher is better)")
+    print("\n 5. Rank Acceptability Index (RAI):")
+    print("    RAI_i^r = (1 / M) * Σ I( rank(CC_i) == r )")
+    print("    where M = Monte Carlo iterations, I = Indicator function")
+    print("="*75 + "\n")
 
 # ==========================================
 # 1. STRUCTURED MARKET DATA GENERATOR
@@ -81,18 +94,31 @@ class ESGPortfolioProblem(ElementwiseProblem):
 # ==========================================
 # 3. EVOLUTIONARY ALGORITHM
 # ==========================================
-print_objective_function()
-print("[1/3] Evolving Pareto Front (Finding the strict market boundaries)...")
+print_comprehensive_mathematical_model()
+print("[1/3] Evolving Pareto Front (Finding strict market boundaries)...")
+
 problem = ESGPortfolioProblem(expected_returns, cov_matrix, esg_risks)
 algorithm = NSGA2(pop_size=600, repair=PortfolioRepair(), eliminate_duplicates=True)
 res = minimize(problem, algorithm, get_termination("n_gen", 800), seed=1, verbose=False)
 
 pareto_front = res.F
-pareto_front[:, 0] = -pareto_front[:, 0] # Re-invert returns
+pareto_front[:, 0] = -pareto_front[:, 0] # Re-invert returns to positive for TOPSIS/Display
 
 # ==========================================
-# 4. ROBUST SMAA-TOPSIS WITH PROFILES & RAI
+# 4. EXTREME METRICS & SMAA-TOPSIS PROFILES
 # ==========================================
+print("\n[2/3] Extracting Absolute Extreme Portfolios (Single Objective Min/Max)...")
+
+idx_max_ret = np.argmax(pareto_front[:, 0])
+idx_min_var = np.argmin(pareto_front[:, 1])
+idx_min_esg = np.argmin(pareto_front[:, 2])
+
+print(f"      -> [MAX RETURN Metric]   F(x) = [{pareto_front[idx_max_ret, 0]*100:05.2f}%, {pareto_front[idx_max_ret, 1]:.4f}, {pareto_front[idx_max_ret, 2]:.2f}]")
+print(f"      -> [MAX SECURITY Metric] F(x) = [{pareto_front[idx_min_var, 0]*100:05.2f}%, {pareto_front[idx_min_var, 1]:.4f}, {pareto_front[idx_min_var, 2]:.2f}]")
+print(f"      -> [MAX ESG Metric]      F(x) = [{pareto_front[idx_min_esg, 0]*100:05.2f}%, {pareto_front[idx_min_esg, 1]:.4f}, {pareto_front[idx_min_esg, 2]:.2f}]")
+
+print("\n[3/3] Running SMAA-TOPSIS Monte Carlo Simulations for Investor Profiles...")
+
 def generate_profile_weights(n, bounds):
     weights = []
     while len(weights) < n:
@@ -133,7 +159,6 @@ profiles = {
     "ESG-mot": [(0.1, 0.3), (0.1, 0.3), (0.6, 0.9)]     
 }
 
-print("[2/3] Running SMAA-TOPSIS Monte Carlo Simulations...")
 best_portfolios_idx = {}
 best_portfolios_rai = {}
 profile_weights = {}
@@ -145,7 +170,8 @@ for name, bounds in profiles.items():
     best_idx, best_rai = run_smaa_topsis_with_rai(pareto_front, w_space)
     best_portfolios_idx[name] = best_idx
     best_portfolios_rai[name] = best_rai
-    print(f"      -> {name} complete.")
+    
+    print(f"      -> [{name} Optimal] F(x) = [{pareto_front[best_idx, 0]*100:05.2f}%, {pareto_front[best_idx, 1]:.4f}, {pareto_front[best_idx, 2]:.2f}]")
 
 # ==========================================
 # 5. TERMINAL PLOTTING (SLIDESHOW MODE)
